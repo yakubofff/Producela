@@ -15,7 +15,6 @@ function onRegisterButtonClick() {
     let chunks_length = document.getElementById("chunks").value;
     let height = document.getElementById("height").value;
 
-    console.log(user_name, n_of_chunks, chunks_length, height)
     fetch(url, {
         "method": "POST",
         "headers": {
