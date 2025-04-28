@@ -25,6 +25,5 @@ function onRegisterButtonClick() {
                 'height': height
         }
     })
-    .then(console.log(user_name, n_of_chunks, chunks_length, height))
     .then(window.location.replace("http://localhost:8000/generated"));
 }
