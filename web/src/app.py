@@ -32,22 +32,17 @@ async def get_info(request: Request):
     height = int(request.headers.get('height'))
     global length_of_chunk
     length_of_chunk = int(request.headers.get('length'))
-    #print(type_of, n_of_cunks, length_of_chunk, height)
 
 
 @app.get("/generated", response_class=HTMLResponse)
 async def create():
     global type_of, n_of_cunks, length_of_chunk, height
-    print(type_of, n_of_cunks, length_of_chunk, height)
     match type_of:
         case 1:
-            print('1111111111111111111111111')
             return HTMLResponse(create_terrain(map_fin(n_of_cunks, length_of_chunk, height)))
         case 2:
-            print('1111111111111111111111111111111')
             return HTMLResponse(create_terrain(generate_xor(n_of_cunks, length_of_chunk, height)))
         case 3:
-            print('111111111111111111111111111')
             return HTMLResponse(create_terrain(generate_map(n_of_cunks, 2**length_of_chunk+1, height)))
 
 
