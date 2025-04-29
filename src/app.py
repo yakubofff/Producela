@@ -38,9 +38,9 @@ async def create():
     global type_of, n_of_cunks, length_of_chunk, height
     match type_of:
         case 1:
-            return HTMLResponse(create_terrain(map_fin(n_of_cunks, length_of_chunk, height)))
+            return HTMLResponse(create_terrain(map_fin(n_of_cunks, 2**length_of_chunk+1, height)))
         case 2:
-            return HTMLResponse(create_terrain(generate_xor(n_of_cunks, length_of_chunk, height)))
+            return HTMLResponse(create_terrain(generate_xor(n_of_cunks, 2**length_of_chunk+1, height)))
         case 3:
             return HTMLResponse(create_terrain(generate_map(n_of_cunks, 2**length_of_chunk+1, height)))
 
