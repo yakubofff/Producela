@@ -1,12 +1,13 @@
+import plotly.graph_objects as go
 import numpy as np
 import struct
 from scipy.signal import wiener
+import scipy
+import plotly
 from itertools import product
 from joblib import Parallel, delayed
 from scipy.interpolate import interpn
 import random
-PRIME32_3 = 0xC2B2AE3D
-PRIME_MX2 = 0x9FB21C651E98DF25
 
 PRIME32_3 = 0xC2B2AE3D
 PRIME_MX2 = 0x9FB21C651E98DF25
@@ -27,7 +28,8 @@ default_secret = bytes([
 def lower_half(x):
     return x & 0xFFFFFFFFFFFFFFFF
 def XXH3_64_4to8(input_length, secret, seed):
-    secret_words = secret[8:24]
+    number = np.random.randint(1, 168)
+    secret_words = secret[number:number + 16]
     to_int = str(bin(seed))[2:]
     input_first = int(to_int[0:4], base=2)
     input_last = int(to_int[-4:], base=2)
@@ -41,13 +43,11 @@ def XXH3_64_4to8(input_length, secret, seed):
     value = (value * PRIME_MX2) & 0xFFFFFFFFFFFFFFFF
     value ^= (value >> 28)
     return value
-def random_num(a,b):
-  return 0
 def side_gen(s):
   return int(2**s + 1)
 def chunk_gen(a, b, c, d, side_x, side_y):
     def mid(a, b):
-        return (a + b) // 2 + random_num(-1, 1)
+        return (a + b) // 2
 
     chunk = np.zeros((side_x, side_y), dtype=int)
     chunk[0][0], chunk[0][side_y - 1], chunk[side_x - 1][0], chunk[side_x - 1][side_y - 1] = a, b, d, c
@@ -55,7 +55,7 @@ def chunk_gen(a, b, c, d, side_x, side_y):
     bc = mid(b, c)
     cd = mid(c, d)
     da = mid(d, a)
-    mid_val = (a + b + c + d) // 4 + random_num(-1, 1)
+    mid_val = (a + b + c + d) // 4
 
     if min(side_x, side_y) != 3:  # Проверяем, чтобы хотя бы одна из сторон не была равна 3
         to_x = (side_x + 1) // 2
@@ -116,4 +116,90 @@ def generate_xor(side, chunk_side,  max_height, num_points=100):
     for x in range(side):
         for y in range(side):
             map[chunk_side*y:chunk_side*(y+1), chunk_side*x:chunk_side*(x+1)] = chunk_gen(heights_mid[x,y], heights_mid[x,y+1], heights_mid[x+1,y+1], heights_mid[x+1,y],chunk_side, chunk_side)
-    return map
+    return [map, x_new, y_new]
+def gen_3d(map):
+    data = product(range(len(map)), range(len(map[0])))
+    xyz_list = Parallel(n_jobs=-1)(delayed(lambda x, y: (x, y, map[x, y]))(x, y) for x, y in data)
+    x_list = [i[0] for i in xyz_list]
+    y_list = [i[1] for i in xyz_list]
+    z_list = [i[2] for i in xyz_list]
+    def distance(x1,y1,x2,y2):
+        d=np.sqrt((x1-x2)**2+(y1-y2)**2)
+        return d
+
+
+    def idw_npoint(xz,yz,n_point,p):
+        r=10
+        nf=0
+        while nf<=n_point:
+            x_block=[]
+            y_block=[]
+            z_block=[]
+            r +=10
+            xr_min=xz-r
+            xr_max=xz+r
+            yr_min=yz-r
+            yr_max=yz+r
+            for i in range(len(x_list)):
+                if ((x_list[i]>=xr_min and x_list[i]<=xr_max) and (y_list[i]>=yr_min and y_list[i]<=yr_max)):
+                    x_block.append(x_list[i])
+                    y_block.append(y_list[i])
+                    z_block.append(z_list[i])
+            nf=len(x_block)
+
+        w_list=[]
+        for j in range(len(x_block)):
+            d=distance(xz,yz,x_block[j],y_block[j])
+            if d>0:
+                w=1/(d**p)
+                w_list.append(w)
+                z0=0
+            else:
+                w_list.append(0)
+
+        w_check=0 in w_list
+        if w_check==True:
+            idx=w_list.index(0)
+            z_idw=z_block[idx]
+        else:
+            wt=np.transpose(w_list)
+            z_idw=np.dot(z_block,wt)/sum(w_list)
+        return z_idw
+
+
+    n=100
+    x_min=min(x_list)
+    x_max=max(x_list)
+    y_min=min(y_list)
+    y_max=max(y_list)
+    w=x_max-x_min
+    h=y_max-y_min
+    wn=w/n
+    hn=h/n
+
+
+    y_init=y_min
+    x_init=x_min
+    x_idw_list=[]
+    y_idw_list=[]
+    z_head=[]
+    for i in range(n):
+        xz=x_init+wn*i
+        yz=y_init+hn*i
+        y_idw_list.append(yz)
+        x_idw_list.append(xz)
+        z_idw_list=[]
+        for j in range(n):
+            xz=x_init+wn*j
+            z_idw=idw_npoint(xz,yz,5,0.8)
+            z_idw_list.append(z_idw)
+        z_head.append(z_idw_list)
+
+
+    fig=go.Figure()
+    colorscale = ['#0318f9','#0393f9', '#25d36d', '#25d36d', '#b5f08a', '#dad085', '#b7a39f', '#b7a39f']
+    fig.add_trace(go.Surface(z=z_head,x=x_idw_list,y=y_idw_list,colorscale=colorscale))
+    fig.update_layout(scene=dict(aspectratio=dict(x=2, y=2, z=0.5),xaxis = dict(range=[x_min,x_max],),yaxis = dict(range=[y_min,y_max])))
+    str_of_html = plotly.io.to_html(fig)
+    str_of_html = str_of_html[:52] + "<a href='/'>Back to settings</a>"+ str_of_html [52:]
+    return str_of_html
