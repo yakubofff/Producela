@@ -5,7 +5,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from perlin_gener import map_fin
 from squares import generate_map
-from xoring import generate_xor
+from xoring import generate_xor, gen_3d
 from graphic import create_terrain
 
 app = FastAPI()
@@ -40,7 +40,7 @@ async def create():
         case 1:
             return HTMLResponse(create_terrain(map_fin(n_of_cunks, 2**length_of_chunk+1, height)))
         case 2:
-            return HTMLResponse(create_terrain(generate_xor(n_of_cunks, 2**length_of_chunk+1, height)))
+            return HTMLResponse(gen_3d(generate_xor(n_of_cunks, 2**length_of_chunk+1, height)[0]))
         case 3:
             return HTMLResponse(create_terrain(generate_map(n_of_cunks, 2**length_of_chunk+1, height)))
 
